@@ -1,0 +1,8 @@
+notification_sound: "notification.wav"
+overlay_x: 0
+overlay_y: 0
+font_size: 24.0
+font_name: "Iosevka"
+font_weight: "Bold"
+default_task_list: "tasks"
+
