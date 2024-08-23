@@ -22,12 +22,18 @@ int initialize_audio() {
     LOG_DEBUG("Audio device opened successfully");
 
     LOG_INFO("Loading notification sound file");
-    notification_sound = Mix_LoadWAV(config.notification_sound);
-    if (notification_sound == NULL) {
-        LOG_ERROR("Failed to load notification sound! SDL_mixer Error: %s", Mix_GetError());
+    char* sound_path = get_config_path(config.notification_sound);
+    if (!sound_path) {
+        LOG_ERROR("Could not find notification sound file: %s", config.notification_sound);
         return 0;
     }
-    LOG_DEBUG("Notification sound loaded successfully");
+
+    notification_sound = Mix_LoadWAV(sound_path);
+    if (notification_sound == NULL) {
+        LOG_ERROR("Failed to load notification sound from %s! SDL_mixer Error: %s", sound_path, Mix_GetError());
+        return 0;
+    }
+    LOG_DEBUG("Notification sound loaded successfully from %s", sound_path);
 
     LOG_INFO("Audio initialized successfully");
     return 1;

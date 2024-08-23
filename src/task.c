@@ -1,5 +1,6 @@
 #include "task.h"
 #include "error_report.h"
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +55,8 @@ int read_routines_from_file(const char* filename) {
         LOG_ERROR("Failed to open file %s", filename);
         return 0;
     }
+
+    LOG_INFO("Reading routines from file: %s", filename);
 
     if (!yaml_parser_initialize(&parser)) {
         LOG_ERROR("Failed to initialize YAML parser");
@@ -167,7 +170,16 @@ int read_routines_from_file(const char* filename) {
 
 int load_routines(const char* filename) {
     routine_list.routine_count = 0;
-    return read_routines_from_file(filename);
+    char* full_path = get_config_path(filename);
+    if (!full_path) {
+        LOG_ERROR("Could not find routine file: %s", filename);
+        return 0;
+    }
+    int result = read_routines_from_file(full_path);
+    if (!result) {
+        LOG_ERROR("Failed to read routines from file: %s", full_path);
+    }
+    return result;
 }
 
 int move_to_next_task(void) {

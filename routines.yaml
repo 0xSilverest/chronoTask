@@ -19,16 +19,14 @@
     - name: Long Break
       duration: 15m
 
-- routine-name: exercise
+- routine-name: generic-tasks
   loop: 1
   inf-loop: false
   tasks:
-    - name: Warm-up
-      duration: 5m
-    - name: Cardio
+    - name: Task1
+      duration: 4200
+    - name: Task2
       duration: 20m
-    - name: Strength Training
-      duration: 15m
-    - name: Cool-down
-      duration: 5m
+    - name: Task3
+      duration: 1h 20m
 

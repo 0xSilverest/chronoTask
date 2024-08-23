@@ -15,8 +15,8 @@ extern int screen;
 extern Visual *visual;
 extern XSetWindowAttributes attrs;
 
+static XftColor cached_text_color, cached_stroke_color;
 static XftFont *cached_font = NULL;
-static XftColor cached_color_white, cached_color_black;
 static int colors_allocated = 0;
 
 static int warning_logged = 0;
@@ -24,18 +24,6 @@ static char last_task_name[256] = "";
 
 static int last_paused_state = -1;
 static int debug_logged = 0;
-
-void cleanup_overlay_resources() {
-    if (cached_font) {
-        XftFontClose(dpy, cached_font);
-        cached_font = NULL;
-    }
-    if (colors_allocated) {
-        XftColorFree(dpy, visual, attrs.colormap, &cached_color_white);
-        XftColorFree(dpy, visual, attrs.colormap, &cached_color_black);
-        colors_allocated = 0;
-    }
-}
 
 int initialize_overlay_resources() {
     if (!cached_font) {
@@ -53,10 +41,10 @@ int initialize_overlay_resources() {
     }
 
     if (!colors_allocated) {
-        XRenderColor xrcolor_white = {65535, 65535, 65535, 65535};
-        XRenderColor xrcolor_black = {0, 0, 0, 65535};
-        if (!XftColorAllocValue(dpy, visual, attrs.colormap, &xrcolor_white, &cached_color_white) ||
-            !XftColorAllocValue(dpy, visual, attrs.colormap, &xrcolor_black, &cached_color_black)) {
+        XRenderColor xrcolor_text = {config.text_color.r << 8, config.text_color.g << 8, config.text_color.b << 8, 65535};
+        XRenderColor xrcolor_stroke = {config.stroke_color.r << 8, config.stroke_color.g << 8, config.stroke_color.b << 8, 65535};
+        if (!XftColorAllocValue(dpy, visual, attrs.colormap, &xrcolor_text, &cached_text_color) ||
+            !XftColorAllocValue(dpy, visual, attrs.colormap, &xrcolor_stroke, &cached_stroke_color)) {
             LOG_ERROR("Failed to allocate colors");
             cleanup_overlay_resources();
             return 0;
@@ -65,6 +53,18 @@ int initialize_overlay_resources() {
     }
 
     return 1;
+}
+
+void cleanup_overlay_resources() {
+    if (cached_font) {
+        XftFontClose(dpy, cached_font);
+        cached_font = NULL;
+    }
+    if (colors_allocated) {
+        XftColorFree(dpy, visual, attrs.colormap, &cached_text_color);
+        XftColorFree(dpy, visual, attrs.colormap, &cached_stroke_color);
+        colors_allocated = 0;
+    }
 }
 
 void draw_stroke(const char* display_text, XftColor xftcolor, int text_x, int text_y, XftDraw *xftdraw) {
@@ -140,25 +140,28 @@ void draw_overlay(int is_paused, time_t elapsed_time) {
     }
 
     int total_width = extents_task.xOff + extents_separator.xOff + extents_time.xOff + extents_paused.xOff;
+    int total_height = extents_task.height;
 
-    int text_x = (width - total_width) / 2;
-    int text_y = (height + extents_task.height) / 2 - extents_task.y;
+    int text_x, text_y;
+    text_x = (width - total_width) / 2;
+    text_y = (height + total_height) / 2 - extents_task.y;
 
-    draw_stroke(task_name, cached_color_black, text_x, text_y, xftdraw);
-    XftDrawStringUtf8(xftdraw, &cached_color_white, cached_font, text_x, text_y, (XftChar8 *)task_name, strlen(task_name));
+
+    draw_stroke(task_name, cached_stroke_color, text_x, text_y, xftdraw);
+    XftDrawStringUtf8(xftdraw, &cached_text_color, cached_font, text_x, text_y, (XftChar8 *)task_name, strlen(task_name));
     text_x += extents_task.xOff;
 
-    draw_stroke(separator, cached_color_black, text_x, text_y, xftdraw);
-    XftDrawStringUtf8(xftdraw, &cached_color_white, cached_font, text_x, text_y, (XftChar8 *)separator, strlen(separator));
+    draw_stroke(separator, cached_stroke_color, text_x, text_y, xftdraw);
+    XftDrawStringUtf8(xftdraw, &cached_text_color, cached_font, text_x, text_y, (XftChar8 *)separator, strlen(separator));
     text_x += extents_separator.xOff;
 
-    draw_stroke(time_str, cached_color_black, text_x, text_y, xftdraw);
-    XftDrawStringUtf8(xftdraw, &cached_color_white, cached_font, text_x, text_y, (XftChar8 *)time_str, strlen(time_str));
+    draw_stroke(time_str, cached_stroke_color, text_x, text_y, xftdraw);
+    XftDrawStringUtf8(xftdraw, &cached_text_color, cached_font, text_x, text_y, (XftChar8 *)time_str, strlen(time_str));
     text_x += extents_time.xOff;
 
     if (is_paused) {
-        draw_stroke(paused_text, cached_color_black, text_x, text_y, xftdraw);
-        XftDrawStringUtf8(xftdraw, &cached_color_white, cached_font, text_x, text_y, (XftChar8 *)paused_text, strlen(paused_text));
+        draw_stroke(paused_text, cached_stroke_color, text_x, text_y, xftdraw);
+        XftDrawStringUtf8(xftdraw, &cached_text_color, cached_font, text_x, text_y, (XftChar8 *)paused_text, strlen(paused_text));
     }
     XftDrawDestroy(xftdraw);
 

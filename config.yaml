@@ -1,8 +1,14 @@
 notification_sound: "notification.wav"
-overlay_x: 0
-overlay_y: 0
+overlay_x: 920
+overlay_y: 120
 font_size: 24.0
 font_name: "Iosevka"
 font_weight: "Bold"
 routines: "routines"
-
+text_color: "#FFFFFF"
+stroke_color: "#000000"
+target_screen: 0  # 0 for primary screen, 1 for secondary, etc.
+window_width: 500
+window_height: 100
+auto_x: "center"  # Can be "left", "center", "right", or any other value for custom
+auto_y: "bottom"  # Can be "top", "middle", "bottom", or any other value for custom

@@ -1,5 +1,6 @@
 #include "window.h"
 #include "error_report.h"
+#include "config.h"
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
@@ -66,22 +67,69 @@ void create_transparent_window() {
     int num_screens;
     XineramaScreenInfo *screen_info = XineramaQueryScreens(dpy, &num_screens);
     if (screen_info == NULL || num_screens == 0) {
-        LOG_ERROR("Xinerama is not active");
+        LOG_ERROR("Xinerama is not active or no screens found");
         exit(1);
     }
 
-    int screen_width = screen_info[0].width;
-    int screen_height = screen_info[0].height;
-    int screen_x = screen_info[0].x_org;
-    int screen_y = screen_info[0].y_org;
+    LOG_INFO("Detected %d screen(s)", num_screens);
+
+    // Determine which screen to use based on config
+    int screen_index = config.target_screen;
+    if (screen_index < 0 || screen_index >= num_screens) {
+        LOG_WARNING("Invalid target_screen in config. Using primary screen (0).");
+        screen_index = 0;
+    }
+
+    int screen_width = screen_info[screen_index].width;
+    int screen_height = screen_info[screen_index].height;
+    int screen_x = screen_info[screen_index].x_org;
+    int screen_y = screen_info[screen_index].y_org;
 
     XFree(screen_info);
 
-    int width = 500;
-    int height = 100;
+    int width = config.window_width;
+    int height = config.window_height;
 
-    int x = screen_x + (screen_width - width) / 2;
-    int y = screen_y + screen_height - height - 20;
+    const int BOTTOM_OFFSET = 70;
+    int x, y;
+
+    switch (config.auto_x) {
+        case H_LEFT:
+            x = screen_x;
+            break;
+        case H_CENTER:
+            x = screen_x + (screen_width - width) / 2;
+            break;
+        case H_RIGHT:
+            x = screen_x + screen_width - width;
+            break;
+        case H_CUSTOM:
+            x = (config.overlay_x < 0) ? screen_x + screen_width + config.overlay_x - width : screen_x + config.overlay_x;
+            break;
+    }
+
+    LOG_INFO("Screen Width: %d, Screen Height: %d", screen_width, screen_height);
+    LOG_INFO("Width: %d, Height: %d", width, height);
+    LOG_INFO("screen x: %d, y: %d", screen_x, screen_y);
+    switch (config.auto_y) {
+        case V_TOP:
+            y = screen_y;
+            break;
+        case V_MIDDLE:
+            y = screen_y + (screen_height - height) / 2;
+            break;
+        case V_BOTTOM:
+            y = screen_y + screen_height - height + BOTTOM_OFFSET;
+            break;
+        case V_CUSTOM:
+            y = (config.overlay_y < 0) ? screen_y + screen_height + config.overlay_y - height : screen_y + config.overlay_y;
+            break;
+    }
+
+    x = (x < screen_x) ? screen_x : x;
+    x = (x + width > screen_x + screen_width) ? screen_x + screen_width - width : x;
+    y = (y < screen_y) ? screen_y : y;
+    y = (y + height > screen_y + screen_height) ? screen_y + screen_height - height : y;
     
     LOG_INFO("Creating window with dimensions: %dx%d at position (%d, %d)", width, height, x, y);
 
