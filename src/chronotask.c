@@ -1,4 +1,5 @@
 #include "chronotask.h"
+#include "error_report.h"
 #include "config.h"
 #include "task.h"
 #include "window.h"
@@ -8,6 +9,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 
 volatile sig_atomic_t keep_running = 1;
 int paused = 0;
@@ -41,19 +43,19 @@ void handle_command(int client_socket, const char* cmd) {
         }
     } else if (strcmp(cmd, "next") == 0) {
         move_to_next_task();
-        sprintf(response, "Moved to next task: %s", get_current_task_name());
+        snprintf(response, BUFFER_SIZE, "Moved to next task: %s", get_current_task_name());
     } else if (strcmp(cmd, "previous") == 0) {
         move_to_previous_task();
-        sprintf(response, "Moved to previous task: %s", get_current_task_name());
+        snprintf(response, BUFFER_SIZE, "Moved to previous task: %s", get_current_task_name());
     } else if (strncmp(cmd, "extend ", 7) == 0) {
         int minutes = atoi(cmd + 7);
         extend_current_task(minutes * 60);
-        sprintf(response, "Extended task by %d minutes", minutes);
+        snprintf(response, BUFFER_SIZE, "Extended task by %d minutes", minutes);
     } else if (strcmp(cmd, "status") == 0) {
         time_t now = time(NULL);
         int elapsed = difftime(now, get_task_start_time()) - total_pause_duration;
         int remaining = get_current_task_duration() - elapsed;
-        sprintf(response, "Current task: %s, Time remaining: %d seconds, Status: %s", 
+        snprintf(response, BUFFER_SIZE, "Current task: %s, Time remaining: %d seconds, Status: %s", 
                 get_current_task_name(), remaining, paused ? "Paused" : "Running");
     } else if (strcmp(cmd, "abort") == 0) {
         strcpy(response, "Terminating ChronoTask");
@@ -68,45 +70,34 @@ void handle_command(int client_socket, const char* cmd) {
 }
 
 int run_chronotask(const char* config_file) {
-    printf("Loading configuration...\n");
+    LOG_INFO("Loading configuration...");
     if (!load_config(config_file)) {
-        fprintf(stderr, "Failed to load configuration\n");
-        return 1;
+        LOG_FATAL("Failed to load configuration from %s", config_file);
     }
 
-    printf("Initializing tasks...\n");
-    if (!initialize_tasks(config.default_task_list)) {
-        fprintf(stderr, "Failed to initialize tasks\n");
-        return 1;
+    LOG_INFO("Initializing routines...");
+    if (!initialize_tasks()) {
+        LOG_FATAL("Failed to initialize routines");
     }
 
-    printf("Initializing audio...\n");
+    LOG_INFO("Initializing audio...");
     if (!initialize_audio()) {
-        fprintf(stderr, "Failed to initialize audio\n");
-        return 1;
+        LOG_WARNING("Failed to initialize audio. ChronoTask will continue without sound.");
     }
 
-    printf("Opening display\n");
+    LOG_INFO("Opening display");
     if (!initialize_display()) {
-        fprintf(stderr, "Failed to initialize display\n");
-        cleanup_audio();
-        return 1;
+        LOG_FATAL("Failed to initialize display");
     }
-    printf("Display opened\n");
 
-    printf("Creating transparent window...\n");
+    LOG_INFO("Creating transparent window...");
     create_transparent_window();
-    printf("Window created\n");
 
-    printf("Creating command socket...\n");
+    LOG_INFO("Creating command socket...");
     int command_socket = create_socket();
     if (command_socket == -1) {
-        fprintf(stderr, "Failed to create command socket\n");
-        cleanup_display();
-        cleanup_audio();
-        return 1;
+        LOG_FATAL("Failed to create command socket");
     }
-    printf("Command socket created\n");
 
     int flags = fcntl(command_socket, F_GETFL, 0);
     fcntl(command_socket, F_SETFL, flags | O_NONBLOCK);
@@ -114,19 +105,15 @@ int run_chronotask(const char* config_file) {
     signal(SIGINT, handle_sigint);
 
     time_t task_start_time = time(NULL);
-    printf("Entering main loop...\n");
+    LOG_INFO("Entering main loop...");
 
     Routine *current_routine_ptr = &routine_list.routines[current_routine];
 
     while (keep_running) {
         time_t current_time = time(NULL);
-        time_t elapsed_time;
-
-        if (paused) {
-            elapsed_time = difftime(pause_start_time, task_start_time) - total_pause_duration;
-        } else {
-            elapsed_time = difftime(current_time, task_start_time) - total_pause_duration;
-        }
+        time_t elapsed_time = paused ? 
+            difftime(pause_start_time, task_start_time) - total_pause_duration :
+            difftime(current_time, task_start_time) - total_pause_duration;
 
         draw_overlay(paused, elapsed_time);
         handle_x11_events();
@@ -141,28 +128,28 @@ int run_chronotask(const char* config_file) {
             close(client_socket);
         }
         
-if (!paused && elapsed_time >= get_current_task_duration()) {
-            printf("Task completed: %s\n", get_current_task_name());
+        if (!paused && elapsed_time >= get_current_task_duration()) {
+            LOG_INFO("Task completed: %s", get_current_task_name());
             play_notification_sound();
             
             if (!move_to_next_task()) {
                 if (current_routine_ptr->inf_loop || --current_routine_ptr->loop > 0) {
                     reset_routine();
                 } else {
-                    printf("Routine completed.\n");
+                    LOG_INFO("Routine completed.");
                     break;
                 }
             }
             
             task_start_time = time(NULL);
             total_pause_duration = 0;
-            printf("Starting next task: %s\n", get_current_task_name());
+            LOG_INFO("Starting next task: %s", get_current_task_name());
         }
 
         usleep(10000);
     }
 
-    printf("ChronoTask shutting down.\n");
+    LOG_INFO("ChronoTask shutting down.");
 
     cleanup_display();
     cleanup_audio();

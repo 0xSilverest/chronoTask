@@ -1,4 +1,5 @@
 #include "task.h"
+#include "error_report.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,12 +51,12 @@ int read_routines_from_file(const char* filename) {
     yaml_event_t event;
 
     if (!file) {
-        fprintf(stderr, "Failed to open file %s\n", filename);
+        LOG_ERROR("Failed to open file %s", filename);
         return 0;
     }
 
     if (!yaml_parser_initialize(&parser)) {
-        fprintf(stderr, "Failed to initialize parser\n");
+        LOG_ERROR("Failed to initialize YAML parser");
         fclose(file);
         return 0;
     }
@@ -217,12 +218,13 @@ time_t get_task_start_time(void) {
 
 int initialize_tasks() {
     if (current_routine < 0 || current_routine >= routine_list.routine_count) {
-        fprintf(stderr, "Invalid routine selected\n");
+        LOG_ERROR("Invalid routine selected");
         return 0;
     }
     
     current_task = 0;
     task_start_time = time(NULL);
+    LOG_INFO("Tasks initialized for routine: %s", routine_list.routines[current_routine].name);
     return 1;
 }
 
@@ -230,9 +232,11 @@ int select_routine(const char* routine_name) {
     for (int i = 0; i < routine_list.routine_count; i++) {
         if (strcmp(routine_list.routines[i].name, routine_name) == 0) {
             current_routine = i;
+            LOG_INFO("Routine selected: %s", routine_name);
             return 1;
         }
     }
+    LOG_WARNING("Routine not found: %s", routine_name);
     return 0;
 }
 
@@ -246,4 +250,5 @@ void list_routines() {
 void reset_routine() {
     current_task = 0;
     task_start_time = time(NULL);
+    LOG_INFO("Routine reset");
 }

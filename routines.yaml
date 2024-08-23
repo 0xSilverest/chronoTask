@@ -1,0 +1,34 @@
+- routine-name: pomodoro
+  loop: 4
+  inf-loop: false
+  tasks:
+    - name: Focus Work
+      duration: 25m
+    - name: Short Break
+      duration: 5m
+    - name: Focus Work
+      duration: 25m
+    - name: Short Break
+      duration: 5m
+    - name: Focus Work
+      duration: 25m
+    - name: Short Break
+      duration: 5m
+    - name: Focus Work
+      duration: 25m
+    - name: Long Break
+      duration: 15m
+
+- routine-name: exercise
+  loop: 1
+  inf-loop: false
+  tasks:
+    - name: Warm-up
+      duration: 5m
+    - name: Cardio
+      duration: 20m
+    - name: Strength Training
+      duration: 15m
+    - name: Cool-down
+      duration: 5m
+

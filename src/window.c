@@ -1,4 +1,5 @@
 #include "window.h"
+#include "error_report.h"
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
@@ -15,36 +16,36 @@ int depth = 0;
 XSetWindowAttributes attrs;
 
 int initialize_display() {
-    printf("Initializing display...\n");
+    LOG_INFO("Initializing display...");
     
     dpy = XOpenDisplay(NULL);
     if (dpy == NULL) {
-        fprintf(stderr, "Cannot open display\n");
+        LOG_ERROR("Cannot open display");
         return 0;
     }
-    printf("Display opened successfully\n");
+    LOG_DEBUG("Display opened successfully");
 
     screen = DefaultScreen(dpy);
-    printf("Default screen: %d\n", screen);
+    LOG_DEBUG("Default screen: %d", screen);
 
     visual = DefaultVisual(dpy, screen);
     if (visual == NULL) {
-        fprintf(stderr, "Failed to get default Visual\n");
+        LOG_ERROR("Failed to get default Visual");
         XCloseDisplay(dpy);
         return 0;
     }
-    printf("Default Visual obtained\n");
+    LOG_DEBUG("Default Visual obtained");
 
     depth = DefaultDepth(dpy, screen);
-    printf("Default depth: %d\n", depth);
+    LOG_DEBUG("Default depth: %d", depth);
 
     gc = DefaultGC(dpy, screen);
     if (gc == NULL) {
-        fprintf(stderr, "Failed to get default Graphics Context\n");
+        LOG_ERROR("Failed to get default Graphics Context");
         XCloseDisplay(dpy);
         return 0;
     }
-    printf("Default Graphics Context obtained\n");
+    LOG_DEBUG("Default Graphics Context obtained");
 
     return 1;
 }
@@ -65,7 +66,7 @@ void create_transparent_window() {
     int num_screens;
     XineramaScreenInfo *screen_info = XineramaQueryScreens(dpy, &num_screens);
     if (screen_info == NULL || num_screens == 0) {
-        fprintf(stderr, "Xinerama is not active\n");
+        LOG_ERROR("Xinerama is not active");
         exit(1);
     }
 
@@ -82,13 +83,13 @@ void create_transparent_window() {
     int x = screen_x + (screen_width - width) / 2;
     int y = screen_y + screen_height - height - 20;
     
-    printf("Creating window with dimensions: %dx%d at position (%d, %d)\n", width, height, x, y);
+    LOG_INFO("Creating window with dimensions: %dx%d at position (%d, %d)", width, height, x, y);
 
     win = XCreateWindow(dpy, root, x, y, width, height, 0, depth, InputOutput, visual,
                         CWColormap | CWBorderPixel | CWBackPixel, &attrs);
 
     if (win == 0) {
-        fprintf(stderr, "Failed to create window\n");
+        LOG_ERROR("Failed to create window");
         exit(1);
     }
 
@@ -101,7 +102,7 @@ void create_transparent_window() {
     XChangeProperty(dpy, win, wm_state, XA_ATOM, 32, PropModeReplace, (unsigned char *)&wm_top, 1);
 
     XMapWindow(dpy, win);
-    printf("Window mapped\n");
+    LOG_DEBUG("Window mapped");
 }
 
 void cleanup_display() {
@@ -114,6 +115,7 @@ void cleanup_display() {
     dpy = NULL;
     win = 0;
     gc = NULL;
+    LOG_INFO("Display cleaned up");
 }
 
 void handle_x11_events() {
