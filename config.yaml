@@ -4,5 +4,5 @@ overlay_y: 0
 font_size: 24.0
 font_name: "Iosevka"
 font_weight: "Bold"
-default_task_list: "tasks"
+routines: "routines"
 

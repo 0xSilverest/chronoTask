@@ -13,7 +13,6 @@ extern int screen;
 extern Visual *visual;
 extern XSetWindowAttributes attrs;
 
-
 void draw_stroke(char* display_text, XftColor xftcolor, XftFont *font, int text_x, int text_y, XftDraw *xftdraw) {
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {

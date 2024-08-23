@@ -116,6 +116,8 @@ int run_chronotask(const char* config_file) {
     time_t task_start_time = time(NULL);
     printf("Entering main loop...\n");
 
+    Routine *current_routine_ptr = &routine_list.routines[current_routine];
+
     while (keep_running) {
         time_t current_time = time(NULL);
         time_t elapsed_time;
@@ -139,20 +141,24 @@ int run_chronotask(const char* config_file) {
             close(client_socket);
         }
         
-        if (!paused && elapsed_time >= get_current_task_duration()) {
+if (!paused && elapsed_time >= get_current_task_duration()) {
             printf("Task completed: %s\n", get_current_task_name());
             play_notification_sound();
             
             if (!move_to_next_task()) {
-                printf("All tasks completed.\n");
-                break;
+                if (current_routine_ptr->inf_loop || --current_routine_ptr->loop > 0) {
+                    reset_routine();
+                } else {
+                    printf("Routine completed.\n");
+                    break;
+                }
             }
             
             task_start_time = time(NULL);
             total_pause_duration = 0;
             printf("Starting next task: %s\n", get_current_task_name());
         }
-        
+
         usleep(10000);
     }
 

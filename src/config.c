@@ -51,8 +51,8 @@ int load_config(const char* filename) {
                         strncpy(config.font_name, (char*)event.data.scalar.value, sizeof(config.font_name) - 1);
                     } else if (strcmp(current_key, "font_weight") == 0) {
                         config.font_weight = string_to_font_weight((char*)event.data.scalar.value);
-                    } else if (strcmp(current_key, "default_task_list") == 0) {
-                        strncpy(config.default_task_list, (char*)event.data.scalar.value, sizeof(config.default_task_list) - 1);
+                    } else if (strcmp(current_key, "routines") == 0) {
+                        strncpy(config.routines, (char*)event.data.scalar.value, sizeof(config.routines) - 1);
                     }
                     current_key[0] = '\0';
                 }

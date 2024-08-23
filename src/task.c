@@ -1,14 +1,17 @@
 #include "task.h"
-#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <yaml.h>
 #include <ctype.h>
+#include <dirent.h>
+#include <time.h>
 
-static Routine routine = {0};
+RoutineList routine_list = {0};
+int current_routine = -1;
 static int current_task = 0;
 static time_t task_start_time;
+
 
 int parse_duration(const char* duration_str) {
     int total_seconds = 0;
@@ -41,7 +44,7 @@ int parse_duration(const char* duration_str) {
     return total_seconds;
 }
 
-int read_tasks_from_file(const char* filename) {
+int read_routines_from_file(const char* filename) {
     FILE *file = fopen(filename, "r");
     yaml_parser_t parser;
     yaml_event_t event;
@@ -63,6 +66,7 @@ int read_tasks_from_file(const char* filename) {
     int in_tasks = 0;
     int in_task = 0;
     char current_key[256] = "";
+    Routine current_routine = {0};
     Task current_task = {0};
 
     do {
@@ -75,21 +79,23 @@ int read_tasks_from_file(const char* filename) {
 
         switch(event.type) {
             case YAML_SCALAR_EVENT:
-                if (!in_routine) {
-                    strncpy(routine.name, (char*)event.data.scalar.value, MAX_TASK_NAME - 1);
+                if (strcmp((char*)event.data.scalar.value, "routine-name") == 0) {
                     in_routine = 1;
+                    strncpy(current_key, "routine-name", 255);
                 } else if (strcmp((char*)event.data.scalar.value, "tasks") == 0) {
                     in_tasks = 1;
-                } else if (!in_tasks) {
+                } else if (in_routine && !in_tasks) {
                     if (strcmp((char*)event.data.scalar.value, "loop") == 0) {
-                        strncpy(current_key, "routine_loop", 255);
+                        strncpy(current_key, "loop", 255);
                     } else if (strcmp((char*)event.data.scalar.value, "inf-loop") == 0) {
-                        strncpy(current_key, "routine_inf_loop", 255);
+                        strncpy(current_key, "inf-loop", 255);
                     } else if (current_key[0] != '\0') {
-                        if (strcmp(current_key, "routine_loop") == 0) {
-                            routine.loop = atoi((char*)event.data.scalar.value);
-                        } else if (strcmp(current_key, "routine_inf_loop") == 0) {
-                            routine.inf_loop = (strcmp((char*)event.data.scalar.value, "true") == 0);
+                        if (strcmp(current_key, "routine-name") == 0) {
+                            strncpy(current_routine.name, (char*)event.data.scalar.value, MAX_TASK_NAME - 1);
+                        } else if (strcmp(current_key, "loop") == 0) {
+                            current_routine.loop = atoi((char*)event.data.scalar.value);
+                        } else if (strcmp(current_key, "inf-loop") == 0) {
+                            current_routine.inf_loop = (strcmp((char*)event.data.scalar.value, "true") == 0);
                         }
                         current_key[0] = '\0';
                     }
@@ -115,14 +121,26 @@ int read_tasks_from_file(const char* filename) {
                 break;
             case YAML_MAPPING_END_EVENT:
                 if (in_task) {
-                    if (routine.task_count < MAX_TASKS) {
-                        routine.tasks[routine.task_count++] = current_task;
+                    if (current_routine.task_count < MAX_TASKS) {
+                        current_routine.tasks[current_routine.task_count++] = current_task;
                         printf("Added task: %s, duration: %d seconds\n", 
                                current_task.name, current_task.duration);
                     } else {
-                        fprintf(stderr, "Maximum number of tasks reached\n");
+                        fprintf(stderr, "Maximum number of tasks reached for routine %s\n", current_routine.name);
                     }
                     in_task = 0;
+                } else if (in_routine) {
+                    if (routine_list.routine_count < MAX_ROUTINES) {
+                        routine_list.routines[routine_list.routine_count++] = current_routine;
+                        printf("Added routine: %s, tasks: %d, loop: %d, inf-loop: %s\n", 
+                               current_routine.name, current_routine.task_count, 
+                               current_routine.loop, current_routine.inf_loop ? "true" : "false");
+                    } else {
+                        fprintf(stderr, "Maximum number of routines reached\n");
+                    }
+                    in_routine = 0;
+                    in_tasks = 0;
+                    memset(&current_routine, 0, sizeof(Routine));
                 }
                 break;
             case YAML_SEQUENCE_END_EVENT:
@@ -143,18 +161,22 @@ int read_tasks_from_file(const char* filename) {
     yaml_parser_delete(&parser);
     fclose(file);
 
-    printf("Read routine: %s, tasks: %d, loop: %d, inf-loop: %s\n", 
-           routine.name, routine.task_count, routine.loop, routine.inf_loop ? "true" : "false");
-    return 1;
+    return routine_list.routine_count > 0;
+}
+
+int load_routines(const char* filename) {
+    routine_list.routine_count = 0;
+    return read_routines_from_file(filename);
 }
 
 int move_to_next_task(void) {
+    Routine* current_routine_ptr = &routine_list.routines[current_routine];
     current_task++;
-    if (current_task >= routine.task_count) {
-        if (routine.inf_loop || routine.loop > 1) {
+    if (current_task >= current_routine_ptr->task_count) {
+        if (current_routine_ptr->inf_loop || current_routine_ptr->loop > 1) {
             current_task = 0;
-            if (!routine.inf_loop) {
-                routine.loop--;
+            if (!current_routine_ptr->inf_loop) {
+                current_routine_ptr->loop--;
             }
         } else {
             return 0;
@@ -165,40 +187,63 @@ int move_to_next_task(void) {
 }
 
 void move_to_previous_task(void) {
+    Routine* current_routine_ptr = &routine_list.routines[current_routine];
     if (current_task > 0) {
         current_task--;
     } else {
-        current_task = routine.task_count - 1;
+        current_task = current_routine_ptr->task_count - 1;
     }
     task_start_time = time(NULL);
 }
 
 void extend_current_task(int seconds) {
-    routine.tasks[current_task].duration += seconds;
+    Routine* current_routine_ptr = &routine_list.routines[current_routine];
+    current_routine_ptr->tasks[current_task].duration += seconds;
 }
 
 const char* get_current_task_name(void) {
-    return routine.tasks[current_task].name;
+    Routine* current_routine_ptr = &routine_list.routines[current_routine];
+    return current_routine_ptr->tasks[current_task].name;
 }
 
 int get_current_task_duration(void) {
-    return routine.tasks[current_task].duration;
+    Routine* current_routine_ptr = &routine_list.routines[current_routine];
+    return current_routine_ptr->tasks[current_task].duration;
 }
 
 time_t get_task_start_time(void) {
     return task_start_time;
 }
 
-int initialize_tasks(const char* task_list_name) {
-    char filename[256];
-    snprintf(filename, sizeof(filename), "%s.yaml", task_list_name);
-    
-    if (!read_tasks_from_file(filename)) {
-        fprintf(stderr, "Failed to read tasks from file: %s\n", filename);
+int initialize_tasks() {
+    if (current_routine < 0 || current_routine >= routine_list.routine_count) {
+        fprintf(stderr, "Invalid routine selected\n");
         return 0;
     }
     
     current_task = 0;
     task_start_time = time(NULL);
     return 1;
+}
+
+int select_routine(const char* routine_name) {
+    for (int i = 0; i < routine_list.routine_count; i++) {
+        if (strcmp(routine_list.routines[i].name, routine_name) == 0) {
+            current_routine = i;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void list_routines() {
+    printf("Available routines:\n");
+    for (int i = 0; i < routine_list.routine_count; i++) {
+        printf("%d. %s\n", i + 1, routine_list.routines[i].name);
+    }
+}
+
+void reset_routine() {
+    current_task = 0;
+    task_start_time = time(NULL);
 }
