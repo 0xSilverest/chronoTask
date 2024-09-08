@@ -12,3 +12,6 @@ window_width: 500
 window_height: 100
 auto_x: "center"  # Can be "left", "center", "right", or any other value for custom
 auto_y: "bottom"  # Can be "top", "middle", "bottom", or any other value for custom
+menu_bg_color: "#181616"
+menu_text_color: "#FFFFFF"
+menu_highlight_color: "#001293"

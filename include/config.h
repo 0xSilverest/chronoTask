@@ -1,7 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <stdbool.h> 
+#include <stdbool.h>
 
 typedef enum {
     H_LEFT,
@@ -36,6 +36,11 @@ typedef struct {
     int window_height;
     HorizontalPosition auto_x;
     VerticalPosition auto_y;
+    Color menu_bg_color;
+    Color menu_text_color;
+    Color menu_highlight_color;
+    double menu_font_size;
+    char menu_font_name[64];
 } ChronoTaskConfig;
 
 extern ChronoTaskConfig config;

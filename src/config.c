@@ -2,7 +2,7 @@
 #include "error_report.h"
 #include <yaml.h>
 #include <stdio.h>
-#include <string.h>
+#include <strings.h>
 #include <X11/Xft/Xft.h>
 #include <unistd.h>
 #include <pwd.h>
@@ -12,7 +12,7 @@ ChronoTaskConfig config;
 char* get_config_path(const char* filename) {
     static char path[1024];
     char* home = getenv("HOME");
-    
+
     if (!home) {
         struct passwd *pw = getpwuid(getuid());
         if (pw)
@@ -151,6 +151,19 @@ int load_config(const char* filename) {
                     } else if (strcmp(current_key, "auto_y") == 0) {
                         config.auto_y = parse_vertical_position((char*)event.data.scalar.value);
                         LOG_DEBUG("Loaded auto_y: %s", (char*)event.data.scalar.value);
+                    } else if (strcmp(current_key, "menu_bg_color") == 0) {
+                        config.menu_bg_color = parse_color((char*)event.data.scalar.value);
+                    } else if (strcmp(current_key, "menu_text_color") == 0) {
+                        config.menu_text_color = parse_color((char*)event.data.scalar.value);
+                    } else if (strcmp(current_key, "menu_highlight_color") == 0) {
+                        config.menu_highlight_color = parse_color((char*)event.data.scalar.value);
+                    } else if (strcmp(current_key, "menu_font_size") == 0) {
+                        config.menu_font_size = atof((char*)event.data.scalar.value);
+                        LOG_DEBUG("Loaded menu font_size: %.2f", config.menu_font_size);
+                    } else if (strcmp(current_key, "menu_font_name") == 0) {
+                        strncpy(config.menu_font_name, (char*)event.data.scalar.value, sizeof(config.menu_font_name) - 1);
+                        config.menu_font_name[sizeof(config.menu_font_name) - 1] = '\0';
+                        LOG_DEBUG("Loaded menu font_name: %s", config.menu_font_name);
                     } else {
                         LOG_WARNING("Unknown configuration key: %s", current_key);
                     }

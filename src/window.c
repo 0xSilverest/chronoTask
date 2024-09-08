@@ -18,7 +18,7 @@ XSetWindowAttributes attrs;
 
 int initialize_display() {
     LOG_INFO("Initializing display...");
-    
+
     dpy = XOpenDisplay(NULL);
     if (dpy == NULL) {
         LOG_ERROR("Cannot open display");
@@ -73,7 +73,6 @@ void create_transparent_window() {
 
     LOG_INFO("Detected %d screen(s)", num_screens);
 
-    // Determine which screen to use based on config
     int screen_index = config.target_screen;
     if (screen_index < 0 || screen_index >= num_screens) {
         LOG_WARNING("Invalid target_screen in config. Using primary screen (0).");
@@ -130,7 +129,7 @@ void create_transparent_window() {
     x = (x + width > screen_x + screen_width) ? screen_x + screen_width - width : x;
     y = (y < screen_y) ? screen_y : y;
     y = (y + height > screen_y + screen_height) ? screen_y + screen_height - height : y;
-    
+
     LOG_INFO("Creating window with dimensions: %dx%d at position (%d, %d)", width, height, x, y);
 
     win = XCreateWindow(dpy, root, x, y, width, height, 0, depth, InputOutput, visual,

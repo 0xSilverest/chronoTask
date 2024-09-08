@@ -54,3 +54,4 @@ dkms.conf
 chronotask
 *.log
 ctrl/chronotask-ctrl
+.clangd

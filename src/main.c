@@ -2,6 +2,7 @@
 #include "config.h"
 #include "chronotask.h"
 #include "error_report.h"
+#include "routine_selector.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -30,7 +31,7 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 log_level = parse_log_level(argv[++i]);
             } else {
-                log_level = LOG_INFO;  // Default to INFO if no level specified
+                log_level = LOG_INFO;
             }
         } else if (strncmp(argv[i], "--verbose=", 10) == 0) {
             log_level = parse_log_level(argv[i] + 10);
@@ -47,43 +48,40 @@ int main(int argc, char *argv[]) {
     if (!load_config(config_file)) {
         LOG_FATAL("Failed to load configuration from %s", config_file);
     }
-    
+
     char routines_file[512];
     snprintf(routines_file, sizeof(routines_file), "%s.yaml", config.routines);
-    
+
     if (!load_routines(routines_file)) {
         LOG_FATAL("Failed to load routines from file: %s", routines_file);
     }
-    
-    if (routine_name != NULL) {
+
+    if (routine_name == NULL) {
+        int selected = select_routine_gui(&routine_list);
+        if (selected >= 0) {
+            current_routine = selected;
+        } else {
+            LOG_INFO("User cancelled routine selection");
+            cleanup_logging();
+            return 1;
+        }
+    } else {
         if (!select_routine(routine_name)) {
             LOG_ERROR("Routine '%s' not found", routine_name);
             list_routines();
             cleanup_logging();
             return 1;
         }
-    } else if (routine_list.routine_count == 1) {
-        current_routine = 0;
-    } else {
-        list_routines();
-        int choice;
-        printf("Enter the number of the routine to run: ");
-        if (scanf("%d", &choice) != 1 || choice < 1 || choice > routine_list.routine_count) {
-            LOG_ERROR("Invalid routine choice");
-            cleanup_logging();
-            return 1;
-        }
-        current_routine = choice - 1;
     }
-    
+
     if (!initialize_tasks()) {
         LOG_FATAL("Failed to initialize tasks");
     }
-     
+
     LOG_INFO("Starting ChronoTask with routine: %s", routine_list.routines[current_routine].name);
     int result = run_chronotask(config_file);
     LOG_INFO("ChronoTask exited with result: %d", result);
-    
+
     cleanup_logging();
     return result;
 }

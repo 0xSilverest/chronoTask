@@ -127,7 +127,7 @@ int read_routines_from_file(const char* filename) {
                 if (in_task) {
                     if (current_routine.task_count < MAX_TASKS) {
                         current_routine.tasks[current_routine.task_count++] = current_task;
-                        printf("Added task: %s, duration: %d seconds\n", 
+                        printf("Added task: %s, duration: %d seconds\n",
                                current_task.name, current_task.duration);
                     } else {
                         fprintf(stderr, "Maximum number of tasks reached for routine %s\n", current_routine.name);
@@ -136,8 +136,8 @@ int read_routines_from_file(const char* filename) {
                 } else if (in_routine) {
                     if (routine_list.routine_count < MAX_ROUTINES) {
                         routine_list.routines[routine_list.routine_count++] = current_routine;
-                        printf("Added routine: %s, tasks: %d, loop: %d, inf-loop: %s\n", 
-                               current_routine.name, current_routine.task_count, 
+                        printf("Added routine: %s, tasks: %d, loop: %d, inf-loop: %s\n",
+                               current_routine.name, current_routine.task_count,
                                current_routine.loop, current_routine.inf_loop ? "true" : "false");
                     } else {
                         fprintf(stderr, "Maximum number of routines reached\n");
@@ -185,6 +185,7 @@ int load_routines(const char* filename) {
 int move_to_next_task(void) {
     Routine* current_routine_ptr = &routine_list.routines[current_routine];
     current_task++;
+    LOG_DEBUG("Moving to next task");
     if (current_task >= current_routine_ptr->task_count) {
         if (current_routine_ptr->inf_loop || current_routine_ptr->loop > 1) {
             current_task = 0;
@@ -195,7 +196,6 @@ int move_to_next_task(void) {
             return 0;
         }
     }
-    task_start_time = time(NULL);
     return 1;
 }
 
@@ -206,7 +206,6 @@ void move_to_previous_task(void) {
     } else {
         current_task = current_routine_ptr->task_count - 1;
     }
-    task_start_time = time(NULL);
 }
 
 void extend_current_task(int seconds) {
@@ -224,6 +223,10 @@ int get_current_task_duration(void) {
     return current_routine_ptr->tasks[current_task].duration;
 }
 
+void set_task_start_time(time_t new_start_time) {
+    task_start_time = new_start_time;
+}
+
 time_t get_task_start_time(void) {
     return task_start_time;
 }
@@ -233,7 +236,7 @@ int initialize_tasks() {
         LOG_ERROR("Invalid routine selected");
         return 0;
     }
-    
+
     current_task = 0;
     task_start_time = time(NULL);
     LOG_INFO("Tasks initialized for routine: %s", routine_list.routines[current_routine].name);

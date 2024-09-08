@@ -15,6 +15,7 @@ volatile sig_atomic_t keep_running = 1;
 int paused = 0;
 time_t pause_start_time = 0;
 time_t total_pause_duration = 0;
+time_t task_start_time = 0;
 
 void handle_sigint(int sig) {
     (void)sig;
@@ -42,10 +43,16 @@ void handle_command(int client_socket, const char* cmd) {
             strcpy(response, "Task already running");
         }
     } else if (strcmp(cmd, "next") == 0) {
-        move_to_next_task();
+        int moved = move_to_next_task();
+        if (moved) {
+            task_start_time = time(NULL);
+            total_pause_duration = 0;
+        }
         snprintf(response, BUFFER_SIZE, "Moved to next task: %s", get_current_task_name());
     } else if (strcmp(cmd, "previous") == 0) {
         move_to_previous_task();
+        task_start_time = time(NULL);
+        total_pause_duration = 0;
         snprintf(response, BUFFER_SIZE, "Moved to previous task: %s", get_current_task_name());
     } else if (strncmp(cmd, "extend ", 7) == 0) {
         int minutes = atoi(cmd + 7);
@@ -55,7 +62,7 @@ void handle_command(int client_socket, const char* cmd) {
         time_t now = time(NULL);
         int elapsed = difftime(now, get_task_start_time()) - total_pause_duration;
         int remaining = get_current_task_duration() - elapsed;
-        snprintf(response, BUFFER_SIZE, "Current task: %s, Time remaining: %d seconds, Status: %s", 
+        snprintf(response, BUFFER_SIZE, "Current task: %s, Time remaining: %d seconds, Status: %s",
                 get_current_task_name(), remaining, paused ? "Paused" : "Running");
     } else if (strcmp(cmd, "abort") == 0) {
         strcpy(response, "Terminating ChronoTask");
@@ -104,20 +111,22 @@ int run_chronotask(const char* config_file) {
 
     signal(SIGINT, handle_sigint);
 
-    time_t task_start_time = time(NULL);
+    task_start_time = time(NULL);
     LOG_INFO("Entering main loop...");
 
     Routine *current_routine_ptr = &routine_list.routines[current_routine];
 
     while (keep_running) {
         time_t current_time = time(NULL);
-        time_t elapsed_time = paused ? 
+        time_t elapsed_time;
+
+        elapsed_time = paused ?
             difftime(pause_start_time, task_start_time) - total_pause_duration :
             difftime(current_time, task_start_time) - total_pause_duration;
 
         draw_overlay(paused, elapsed_time);
         handle_x11_events();
-    
+
         int client_socket = accept_connection(command_socket);
         if (client_socket != -1) {
             char buffer[BUFFER_SIZE];
@@ -127,11 +136,11 @@ int run_chronotask(const char* config_file) {
             }
             close(client_socket);
         }
-        
+
         if (!paused && elapsed_time >= get_current_task_duration()) {
             LOG_INFO("Task completed: %s", get_current_task_name());
             play_notification_sound();
-            
+
             if (!move_to_next_task()) {
                 if (current_routine_ptr->inf_loop || --current_routine_ptr->loop > 0) {
                     reset_routine();
@@ -140,13 +149,16 @@ int run_chronotask(const char* config_file) {
                     break;
                 }
             }
-            
+
             task_start_time = time(NULL);
             total_pause_duration = 0;
             LOG_INFO("Starting next task: %s", get_current_task_name());
         }
 
-        usleep(10000);
+        struct timespec ts;
+        ts.tv_sec = 0;
+        ts.tv_nsec = 10000000L;
+        nanosleep(&ts, NULL);
     }
 
     LOG_INFO("ChronoTask shutting down.");
